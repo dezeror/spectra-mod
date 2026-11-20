@@ -106,6 +106,30 @@ def main():
         else:
             step(f'abiFilters "{args.abi}" already present', True)
 
+    # 3c. google-services.json: add a client entry for the new applicationId
+    #     (otherwise the google-services plugin fails with "No matching client found")
+    gs = os.path.join(app, "google-services.json")
+    if os.path.isfile(gs) and args.application_id:
+        try:
+            import json as _json
+            data = _json.load(open(gs, encoding="utf-8"))
+            pkgs = [c.get("client_info", {}).get("android_client_info", {}).get("package_name")
+                    for c in data.get("client", [])]
+            if args.application_id not in pkgs:
+                if data.get("client"):
+                    clone = _json.loads(_json.dumps(data["client"][0]))
+                    clone.setdefault("client_info", {}).setdefault(
+                        "android_client_info", {})["package_name"] = args.application_id
+                    data["client"].append(clone)
+                _json.dump(data, open(gs, "w", encoding="utf-8"), indent=2)
+                step(f"google-services.json: client for {args.application_id} added (was: {pkgs})", True)
+            else:
+                step(f"google-services.json already contains {args.application_id}", True)
+        except Exception as e:
+            step("google-services.json patch", False, str(e))
+    else:
+        step("google-services.json patch", False, "file not found")
+
     # 4. App label: rebrand every @string key used as android:label in the manifest
     manifest = os.path.join(main_dir, "AndroidManifest.xml")
     label_keys = set()
