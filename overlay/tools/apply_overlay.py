@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--app-hash", default=FOSS_APP_HASH)
     ap.add_argument("--app-name", default="Spectra")
     ap.add_argument("--application-id", default="org.spectra.messenger")
+    ap.add_argument("--abi", default="arm64-v8a",
+                    help="restrict native build + splits to one ABI (pass empty string to build all)")
     ap.add_argument("--no-settings-entry", action="store_true")
     args = ap.parse_args()
 
@@ -90,6 +92,19 @@ def main():
         step(f'applicationId -> "{args.application_id}" ({count} occurrences)', count > 0, "TMessagesProj/build.gradle")
     else:
         step("applicationId patch", False, "TMessagesProj/build.gradle not found")
+
+    # 3b. Restrict native compilation + ABI splits to one ABI (huge CI time saver)
+    if os.path.isfile(gradle) and args.abi:
+        text = open(gradle, encoding="utf-8").read()
+        if f'abiFilters "{args.abi}"' not in text:
+            new, c = re.subn(r"(targets 'tmessages\.49')",
+                             rf'\1\n                abiFilters "{args.abi}"', text, count=1)
+            if c:
+                open(gradle, "w", encoding="utf-8").write(new)
+            step(f'abiFilters "{args.abi}" injected (native builds only for this ABI)', bool(c),
+                 "TMessagesProj/build.gradle defaultConfig")
+        else:
+            step(f'abiFilters "{args.abi}" already present', True)
 
     # 4. App label: rebrand every @string key used as android:label in the manifest
     manifest = os.path.join(main_dir, "AndroidManifest.xml")
@@ -156,6 +171,21 @@ def main():
     copytree(os.path.join(OVERLAY, "docs"), docs_dst)
     step("docs -> docs/spectra (HOOKS.md, FEATURES.md, TESTING.md)", True)
 
+    # 7b. ProGuard keep rules for the Spectra overlay (release/minify builds)
+    pg = os.path.join(app, "proguard-rules.pro")
+    if os.path.isfile(pg):
+        text = open(pg, encoding="utf-8").read()
+        if "-keep class org.telegram.spectra.**" not in text:
+            with open(pg, "a", encoding="utf-8") as f:
+                f.write("\n# --- Spectra mod: keep the whole overlay ---\n"
+                        "-keep class org.telegram.spectra.** { *; }\n"
+                        "-dontwarn org.telegram.spectra.**\n")
+            step("proguard-rules.pro: Spectra keep rules appended", True)
+        else:
+            step("proguard-rules.pro: Spectra keep rules present", True)
+    else:
+        step("proguard-rules.pro", False, "file not found")
+
     # 8. Spectra Settings entry in NekoSettingsActivity (self-healing)
     if not args.no_settings_entry:
         ns = os.path.join(main_dir, "java", "tw", "nekomimi", "nekogram", "settings", "NekoSettingsActivity.java")
@@ -212,8 +242,8 @@ def main():
         print(f"  OK   {name}" + (f" — {detail}" if detail else ""))
     for name, detail in warn:
         print(f"  WARN {name}" + (f" — {detail}" if detail else ""))
-    print("\nNext: cd %s && ./gradlew TMessagesProj:assembleArm64Debug" % repo)
-    print("APK:  TMessagesProj/build/outputs/apk/arm64/debug/")
+    print("\nNext: cd %s && NATIVE_TARGET=%s ./gradlew TMessagesProj:assembleRelease" % (repo, args.abi or ""))
+    print("APK:  TMessagesProj/build/outputs/apk/ — *arm64-v8a*.apk")
 
 if __name__ == "__main__":
     main()
