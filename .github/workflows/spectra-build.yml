@@ -54,7 +54,11 @@ jobs:
       - name: Install NDK 27.2.12479018 + CMake 3.22.1
         run: |
           echo "y" | sdkmanager --install "ndk;27.2.12479018" "cmake;3.22.1" --sdk_root="$ANDROID_HOME" > /dev/null
-          echo "sdk.dir=$ANDROID_HOME" > nagram/local.properties
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "TELEGRAM_APP_ID=12834"
+            echo "TELEGRAM_APP_HASH=c84d9229db1d6be95c067b02b126352c"
+          } > nagram/local.properties
 
       - name: Apply Spectra overlay
         run: python3 overlay/tools/apply_overlay.py --repo "$GITHUB_WORKSPACE/nagram"
@@ -76,6 +80,7 @@ jobs:
             } >> nagram/local.properties
             echo "Signing with the keystore from repo secrets (stable signature)."
           else
+            rm -f "$KS"   # Nagram ships its own release.keystore with an unknown password - drop it first
             keytool -genkeypair -v -keystore "$KS" -alias spectra -keyalg RSA -keysize 2048 \
               -validity 10950 -storepass spectra2024 -keypass spectra2024 \
               -dname "CN=Spectra, OU=Spectra, O=Spectra, L=Internet, ST=Internet, C=RU"
