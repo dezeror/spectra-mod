@@ -2,7 +2,8 @@ name: Spectra Build
 
 # One-click build of the Spectra mod APK:
 #   1) clone Nagram with submodules (native libs build via Gradle CMake)
-#   2) install NDK + CMake, apply the Spectra overlay (branding, icons, config, theme, settings UI)
+#   2) install NDK + CMake, apply the Spectra overlay (branding, icons, config, theme, settings UI,
+#      crash diagnostics with an on-screen report in safe mode)
 #   3) generate (or take from repo secrets) a signing keystore
 #   4) assemble an arm64-v8a APK (release by default, debug optional) — signed and installable
 #
@@ -61,7 +62,9 @@ jobs:
           } > nagram/local.properties
 
       - name: Apply Spectra overlay
-        run: python3 overlay/tools/apply_overlay.py --repo "$GITHUB_WORKSPACE/nagram"
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 overlay/tools/apply_overlay.py --repo "$GITHUB_WORKSPACE/nagram"
 
       - name: Prepare signing keystore (secrets, or generated)
         env:
@@ -113,10 +116,11 @@ jobs:
         run: |
           mkdir -p out
           TYPE=${{ github.event.inputs.build_type || 'release' }}
-          find nagram/TMessagesProj/build/outputs/apk -name "*.apk" -exec cp {} out/ \;
+          # exactly one APK: only the arm64-v8a build goes into the artifact
+          find nagram/TMessagesProj/build/outputs/apk -name "*arm64-v8a*.apk" -exec cp {} out/ \;
           cd out
           for f in *arm64-v8a*.apk; do
-            [ -e "$f" ] && mv "$f" "Spectra-v1.0-${TYPE}-arm64.apk"
+            [ -e "$f" ] && mv "$f" "Spectra-v1.1-${TYPE}-arm64.apk"
           done
           ls -la
 
