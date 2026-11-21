@@ -230,6 +230,11 @@ def main():
                 if m:
                     text = text[:m.end()] + "\n" + m.group(1) + "private int spectraSettingsRow;" + text[m.end():]
 
+            # d0) remove a previously misplaced text-binding insert (it must not live in the click handler)
+            text = re.sub(
+                r'\} else if \(position == spectraSettingsRow\) \{\s*textCell\.setText\("Spectra Settings", divider\);\s*\} else if \(position == channelRow\) \{',
+                '} else if (position == channelRow) {', text)
+
             # c) click handling
             if "position == spectraSettingsRow" not in text:
                 m = re.search(r'(if \(position == generalRow\) \{)', text)
@@ -239,23 +244,29 @@ def main():
                            '        } else ' + m.group(1))
                     text = text[:m.start()] + ins + text[m.end():]
 
-            # d) row text binding
-            if 'position == spectraSettingsRow' in text and 'textCell.setText("Spectra Settings"' not in text:
-                m = re.search(r'(if \(position == channelRow\) \{)', text)
+            # d) row text binding — inside the TYPE_SETTINGS block, next to importSettingsRow
+            if 'textCell.setText("Spectra Settings"' not in text:
+                anchor = 'textCell.setText(LocaleController.getString(R.string.ImportSettings), divider);'
+                m = re.search(re.escape(anchor), text)
                 if m:
-                    ins = ('if (position == spectraSettingsRow) {\n'
-                           '                        textCell.setText("Spectra Settings", divider);\n'
-                           '                    } else ' + m.group(1))
-                    text = text[:m.start()] + ins + text[m.end():]
+                    ins = ('\n                    } else if (position == spectraSettingsRow) {\n'
+                           '                        textCell.setText("Spectra Settings", divider);')
+                    text = text[:m.end()] + ins + text[m.end():]
 
+            if text.count("{") != text.count("}"):
+                step("NekoSettingsActivity braces balance", False,
+                     "patch would break the if/else structure — file left unmodified")
+                text = original
             if text != original:
                 open(ns, "w", encoding="utf-8").write(text)
-            # verify all four pieces
+            # verify all pieces
             good = all(x in text for x in (
                 'private int spectraSettingsRow;',
                 'spectraSettingsRow = addRow("spectra");',
-                'position == spectraSettingsRow',
-                'textCell.setText("Spectra Settings"'))
+                'if (position == spectraSettingsRow) {',
+                'presentFragment(new org.telegram.spectra.SpectraSettingsActivity());',
+                '} else if (position == spectraSettingsRow) {',
+                'textCell.setText("Spectra Settings", divider);'))
             step("Spectra Settings entry added to NekoSettingsActivity", good,
                  "" if good else "some insertion pieces missing — check manually")
         else:
