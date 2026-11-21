@@ -5,6 +5,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.view.Gravity;
+import android.widget.FrameLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -70,7 +71,7 @@ public class SpectraSliderCell extends android.widget.FrameLayout {
             @Override public void onStartTrackingTouch(SeekBar bar) {}
             @Override public void onStopTrackingTouch(SeekBar bar) {}
         });
-        LayoutParams sbp = new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        FrameLayout.LayoutParams sbp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
         sbp.topMargin = AndroidUtilities.dp(30);
         addView(seekBar, sbp);
 
@@ -79,7 +80,7 @@ public class SpectraSliderCell extends android.widget.FrameLayout {
     }
 
     private static FrameLayout.LayoutParams LayoutParams() {
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
         return lp;
     }
 
